@@ -1,17 +1,16 @@
 import asyncio
+import sys
+import os
 
-from core.loader import bot, dp
-from core.dispatcher import register_all_handlers
-from services.scheduler import _pending_tasks
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+from bot.core.loader import bot, dp
+from bot.core.dispatcher import register_all_handlers
 
 async def main():
-    # Регистрируем хендлеры
     register_all_handlers(dp)
 
     print("Bot is running...")
-
-    # Запускаем polling
     await dp.start_polling(bot)
 
 
