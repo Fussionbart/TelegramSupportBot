@@ -35,7 +35,7 @@ async def start_cmd(message: Message):
             return
 
     text = (
-        "Привет! Это поддержка NextRouteVPN.\n"
+        "Привет! Это поддержка {example}.\n"
         "Опишите проблему (можно несколькими сообщениями), после чего ожидайте."
     )
 
