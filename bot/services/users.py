@@ -1,75 +1,82 @@
 import time
-from config import USERS_PATH
+from config import USERS_PATH, ADMIN_ID
 from bot.core.json_storage import JsonStorage
 
-
-# создаём глобальный стор
 _users = JsonStorage(USERS_PATH)
 
+async def get_user(user_id: int) -> dict:
 
-def get_user(user_id: int) -> dict:
-    """
-    Возвращает словарь с данными пользователя.
-    Если пользователя ещё нет — создаёт новую запись.
-    """
     user_id = str(user_id)
 
-    data = _users.load()
+    data = await _users.load()
 
     if user_id not in data:
         data[user_id] = {
             "current_ticket_id": None,
             "last_message_at": None,
-            "ack_planned": False
+            "ack_planned": False,
+            "admin_notified": False
         }
-        _users.save(data)
+        await _users.save(data)
 
     return data[user_id]
 
-
-def update_user(user_id: int, **fields):
-    """
-    Обновляет указанные поля пользователя.
-    Пример: update_user(123, current_ticket_id=5, ack_planned=True)
-    """
+async def update_user(user_id: int, **fields):
     user_id = str(user_id)
 
-    def _update(data):
-        if user_id not in data:
-            data[user_id] = {
-                "current_ticket_id": None,
-                "last_message_at": None,
-                "ack_planned": False
-            }
+    # Загружаем текущие данные
+    data = await _users.load()
 
-        for key, value in fields.items():
-            data[user_id][key] = value
+    if user_id not in data:
+        data[user_id] = {
+            "current_ticket_id": None,
+            "last_message_at": None,
+            "ack_planned": False,
+            "ticket_fresh": False
+        }
 
-    _users.update(_update)
+    for key, value in fields.items():
+        data[user_id][key] = value
 
+    await _users.save(data)
 
-def set_last_message(user_id: int):
-    """ Обновляет отметку времени последнего сообщения пользователя. """
-    update_user(user_id, last_message_at=int(time.time()))
+async def set_last_message(user_id: int):
+    await update_user(user_id, last_message_at=int(time.time()))
 
+async def set_ack_planned(user_id: int, value: bool):
+    await update_user(user_id, ack_planned=value)
 
-def set_ack_planned(user_id: int, value: bool):
-    """ Устанавливает флаг, что мы планируем автоответ. """
-    update_user(user_id, ack_planned=value)
+async def set_current_ticket(user_id: int, ticket_id: int | None):
+    await update_user(user_id, current_ticket_id=ticket_id)
 
+async def get_last_message_time(user_id: int) -> int | None:
+    user = await get_user(user_id)
+    return user.get("last_message_at")
 
-def set_current_ticket(user_id: int, ticket_id: int | None):
-    """ Устанавливает ID текущего тикета. """
-    update_user(user_id, current_ticket_id=ticket_id)
+async def get_current_ticket(user_id: int) -> int | None:
+    user = await get_user(user_id)
+    return user.get("current_ticket_id")
 
+async def is_ack_planned(user_id: int) -> bool:
+    user = await get_user(user_id)
+    return bool(user.get("ack_planned"))
 
-def get_last_message_time(user_id: int) -> int | None:
-    return get_user(user_id).get("last_message_at")
+async def was_admin_notified(user_id: int) -> bool:
+    user = await get_user(user_id)
+    return user.get("admin_notified", False)
 
+async def set_admin_notified(user_id: int, value: bool):
+    await update_user(user_id, admin_notified=value)
 
-def get_current_ticket(user_id: int) -> int | None:
-    return get_user(user_id).get("current_ticket_id")
+async def has_admin_started() -> bool:
+    data = await _users.load()
+    adm = str(ADMIN_ID)
+    return data.get(adm, {}).get("admin_started", False)
 
-
-def is_ack_planned(user_id: int) -> bool:
-    return bool(get_user(user_id).get("ack_planned"))
+async def set_admin_started():
+    data = await _users.load()
+    adm = str(ADMIN_ID)
+    if adm not in data:
+        data[adm] = {}
+    data[adm]["admin_started"] = True
+    await _users.save(data)
